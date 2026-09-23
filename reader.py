@@ -88,17 +88,21 @@ def extract_from_pcap(pcap_path: str):
     packets = rdpcap(pcap_path)
     results = []
 
+    # si este paquete no es tipo UDP, se salta
+    # si es UDP pero no usa el puerto 520 se salta
     for i, pkt in enumerate(packets):
         if not pkt.haslayer(UDP):
             continue
         if pkt[UDP].sport != RIP_PORT or pkt[UDP].dport != RIP_PORT:
             continue
 
+        # si no tenia auth se salta tmb
         raw = bytes(pkt[UDP].payload)
         parsed = parse_rip_auth_packet(raw)
         if parsed is None:
-            continue  # paquete sin auth (ej. un "request" vacío)
+            continue
 
+        # se agregan dos dts extra: en que posición del pcap estaba, y quién lo mando / a quién iba
         parsed["packet_index"] = i
         if pkt.haslayer(IP):
             parsed["src_ip"] = pkt[IP].src
@@ -114,15 +118,18 @@ def main():
         print("Uso: python3 pickup.py <archivo.pcap> [salida.json]")
         sys.exit(1)
 
+    # si no le pones nombre, usa el de pickup_output.json
     pcap_path = sys.argv[1]
     out_path = sys.argv[2] if len(sys.argv) > 2 else "pickup_output.json"
 
     entries = extract_from_pcap(pcap_path)
 
+    # por si viene vacío
     if not entries:
         print("No se encontraron paquetes RIP autenticados en el pcap.")
         sys.exit(1)
 
+    # para ver que se encontro, no tiene utilidad
     print(f"Se encontraron {len(entries)} paquetes RIP autenticados (MD5).")
     print("\nResumen:")
     for e in entries:
@@ -134,6 +141,7 @@ def main():
             f"digest={e['digest_hex']}"
         )
 
+    # escrito en json bonito
     with open(out_path, "w") as f:
         json.dump(entries, f, indent=2)
 
