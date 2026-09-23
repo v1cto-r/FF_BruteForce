@@ -14,7 +14,17 @@ SERVER_IP = '10.22.145.142'
 SERVER_PORT = 65433
 
 # Toggle between Standard HMAC-MD5 (True) vs RFC 2082 Keyed-MD5 (False)
-USE_STANDARD_HMAC = True  
+USE_STANDARD_HMAC = False
+
+CHARSET = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+def index_to_candidate(index, length):
+    base = len(CHARSET)
+    chars = ["0"] * length
+    for i in range(length - 1, -1, -1):
+        chars[i] = CHARSET[index % base]
+        index //= base
+    return "".join(chars)
 
 def compute_digest(raw_candidate, payload_bytes):
     """
@@ -45,13 +55,11 @@ def process_work_assignment(command, client_socket):
     
     # Read dynamic key length provided by server.py (defaults to 6 if missing)
     key_length = command.get("key_length", 6)
-    cand_spec = f"0{key_length}x"
 
     print(f"[*] Testing range {hex(start_int)} to {hex(end_int)} (Key length: {key_length})")
 
     for current_int in range(start_int, end_int + 1):
-        # Generate candidate string (e.g., '00335b')
-        raw_candidate = format(current_int, cand_spec)
+        raw_candidate = index_to_candidate(current_int, key_length)
 
         # Compute digest
         calculated_digest = compute_digest(raw_candidate, payload_bytes)

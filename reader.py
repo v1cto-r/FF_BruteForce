@@ -64,14 +64,7 @@ def parse_rip_auth_packet(raw: bytes):
     if trailer_afi != AUTH_AFI or trailer_type != TRAILER_AUTH_TYPE:
         return None  # el paquete estaba corrupto o mal formado
 
-    """
-    "hmac_base": el payload sobre el cual se calculó originalmente el
-    HMAC. Según RFC 2082, es TODO el paquete RIP (header + auth header
-    + RTEs) SIN el trailer final, y con el campo de digest sustituido
-    por el valor de la clave/keystring durante el cálculo real del
-    HMAC
-    """
-    hmac_base = raw[: -(MD5_DIGEST_LEN + 4)]
+    hmac_base = raw[:-MD5_DIGEST_LEN]
 
     return {
         "command": command,

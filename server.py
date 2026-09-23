@@ -9,10 +9,10 @@ import json
 import heapq
 import threading
 
-HOST = '127.0.0.1'
-PORT = 65432
+HOST = '0.0.0.0'
+PORT = 65433
 KEY_LENGTH = 6          # zero-padded hex digits per candidate key, matches client.py default
-BLOCK_SIZE = 65536      # how many keys go out per assigned block
+BLOCK_SIZE = 131_072      # how many keys go out per assigned block
 
 # --- shared state (reset in start_server, guarded by the locks below) ---
 queue_lock = threading.Lock()
@@ -22,7 +22,7 @@ heap = []               # heapq of (priority, block) for requeued blocks only
 requeue_counter = -1    # decremented on every requeue so latest failure sorts first
 next_start = 0          # cursor into untouched keyspace
 next_id = 0
-total_keyspace = 16 ** KEY_LENGTH
+total_keyspace = 36 ** KEY_LENGTH
 found_key = None
 
 
