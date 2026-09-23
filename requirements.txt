@@ -1,0 +1,2 @@
+scapy~=2.7.0
+pydantic~=2.13.5

@@ -113,6 +113,16 @@ def extract_from_pcap(pcap_path: str):
     return results
 
 
+def get_crack_target(pcap_path: str, index: int = 0):
+    """Extract auth data from a pcap and return (target_hmac, payload_hex) for the server."""
+    entries = extract_from_pcap(pcap_path)
+    if not entries:
+        raise ValueError("No authenticated RIP packets found in pcap.")
+
+    entry = entries[index]
+    return entry["digest_hex"], entry["hmac_base_hex"]
+
+
 def main():
     if len(sys.argv) < 2:
         print("Uso: python3 pickup.py <archivo.pcap> [salida.json]")

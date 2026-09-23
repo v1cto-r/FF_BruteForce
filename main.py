@@ -1,9 +1,17 @@
 
+import reader
+import server
+
+PCAP_PATH = "capture.pcap"
+
+
 def main():
   # Leer el archivo
+  target_hmac, payload_hex = reader.get_crack_target(PCAP_PATH)
 
   # Orquestar el servidor y los clientes
-  
+  server.start_server(target_hmac, payload_hex)
+
   # Con la contraseña ejecutar la inyección de RIP
 
   return
