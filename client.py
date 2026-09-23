@@ -10,13 +10,31 @@ import hmac
 import hashlib
 
 # Configuration settings
-SERVER_IP = '127.0.0.1'
-SERVER_PORT = 65432
+SERVER_IP = '10.22.145.142'
+SERVER_PORT = 65433
 
-def compute_hmac_md5(key_str, payload_bytes):
-    """Calculates HMAC-MD5 signature for a given candidate key string."""
-    key_bytes = key_str.encode('utf-8')
-    return hmac.new(key_bytes, payload_bytes, hashlib.md5).hexdigest()
+# Toggle between Standard HMAC-MD5 (True) vs RFC 2082 Keyed-MD5 (False)
+USE_STANDARD_HMAC = True  
+
+def compute_digest(raw_candidate, payload_bytes):
+    """
+    Computes digest using raw candidate key (e.g., '00335b') 
+    padded with NULL bytes (\x00) to 16 bytes.
+    """
+    key_ascii_bytes = raw_candidate.encode('utf-8')
+    
+    # Pad candidate key to exactly 16 bytes using binary NULL bytes (\x00)
+    padded_key_bytes = key_ascii_bytes.ljust(16, b'\x00')
+
+    if USE_STANDARD_HMAC:
+        # Standard HMAC-MD5 using padded 16-byte key
+        return hmac.new(padded_key_bytes, payload_bytes, hashlib.md5).hexdigest()
+    else:
+        # RFC 2082 Keyed-MD5: MD5(Payload + 16-byte Padded Key)
+        md5_obj = hashlib.md5()
+        md5_obj.update(payload_bytes)
+        md5_obj.update(padded_key_bytes)
+        return md5_obj.hexdigest()
 
 def process_work_assignment(command, client_socket):
     """Processes an ASSIGN_WORK command and executes the brute-force search."""
@@ -25,24 +43,30 @@ def process_work_assignment(command, client_socket):
     target_hmac = command["target_hmac"]
     payload_bytes = bytes.fromhex(command["payload_hex"])
     
-    # Read dynamic key length provided by server.py (defaults to 6 if not provided)
+    # Read dynamic key length provided by server.py (defaults to 6 if missing)
     key_length = command.get("key_length", 6)
-    format_spec = f"0{key_length}x"
+    cand_spec = f"0{key_length}x"
 
     print(f"[*] Testing range {hex(start_int)} to {hex(end_int)} (Key length: {key_length})")
 
     for current_int in range(start_int, end_int + 1):
-        # Format candidate string to the specified zero-padded length
-        candidate_key = format(current_int, format_spec)
-        calculated_hmac = compute_hmac_md5(candidate_key, payload_bytes)
+        # Generate candidate string (e.g., '00335b')
+        raw_candidate = format(current_int, cand_spec)
 
-        if calculated_hmac.lower() == target_hmac.lower():
-            print(f"[!] Key found: {candidate_key}")
+        # Compute digest
+        calculated_digest = compute_digest(raw_candidate, payload_bytes)
+
+        # # DEBUG PRINT: Displays exact key string and raw 16-byte representation
+        # padded_debug = raw_candidate.encode('utf-8').ljust(16, b'\x00')
+        # print(f"[DEBUG] Testing key: '{raw_candidate}' | Key bytes: {padded_debug}")
+
+        if calculated_digest.lower() == target_hmac.lower():
+            print(f"[!] Key found! Candidate: '{raw_candidate}'")
             
-            # Inform the server that the key was found
+            # Send result back to server
             found_msg = json.dumps({
                 "action": "KEY_FOUND",
-                "key": candidate_key
+                "key": raw_candidate
             }) + "\n"
             client_socket.sendall(found_msg.encode('utf-8'))
             return True
@@ -50,62 +74,64 @@ def process_work_assignment(command, client_socket):
     print("[*] Range completed without matches.")
     return False
 
-# 1. Create a socket object
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def main():
+    # 1. Create a socket object
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# 2. Connect to the server
-client_socket.connect((SERVER_IP, SERVER_PORT))
-print(f"[+] Connected to server at {SERVER_IP}:{SERVER_PORT}")
+    # 2. Connect to the server
+    client_socket.connect((SERVER_IP, SERVER_PORT))
+    print(f"[+] Connected to server at {SERVER_IP}:{SERVER_PORT}")
 
-buffer = ""
+    buffer = ""
+    should_exit = False
 
-try:
-    while True:
-        # 3. Send a message (Requesting work from server)
-        request_msg = json.dumps({"action": "REQUEST_WORK"}) + "\n"
-        client_socket.sendall(request_msg.encode('utf-8'))
+    try:
+        while not should_exit:
+            # 3. Send work request to server
+            request_msg = json.dumps({"action": "REQUEST_WORK"}) + "\n"
+            client_socket.sendall(request_msg.encode('utf-8'))
 
-        # 4. Receive the reply
-        reply = client_socket.recv(4096)
-        if not reply:
-            print("[-] Connection closed by server.")
-            break
-
-        buffer += reply.decode('utf-8')
-
-        # Process received newline-delimited JSON messages
-        while "\n" in buffer:
-            line, buffer = buffer.split("\n", 1)
-            if not line.strip():
-                continue
-
-            command = json.loads(line)
-            action = command.get("action")
-
-            if action == "ASSIGN_WORK":
-                found = process_work_assignment(command, client_socket)
-                if found:
-                    # Key found, terminate execution
-                    raise KeyboardInterrupt
-
-            elif action == "STOP":
-                print("[*] Received STOP command from server. Exiting.")
+            # 4. Receive reply from server
+            reply = client_socket.recv(4096)
+            if not reply:
+                print("[-] Connection closed by server.")
                 break
 
-            elif action == "NO_WORK":
-                print("[*] No more work available from server. Exiting.")
-                break
+            buffer += reply.decode('utf-8')
 
-        # Stop main loop if exit signal was processed inside buffer loop
-        if command.get("action") in ["STOP", "NO_WORK"]:
-            break
+            # Process received newline-delimited JSON messages
+            while "\n" in buffer:
+                line, buffer = buffer.split("\n", 1)
+                if not line.strip():
+                    continue
 
-except KeyboardInterrupt:
-    print("[*] Task complete. Closing client.")
-except Exception as e:
-    print(f"[-] Error: {e}")
+                command = json.loads(line)
+                action = command.get("action")
 
-finally:
-    # 5. Close the connection
-    client_socket.close()
-    print("[+] Connection closed.")
+                if action == "ASSIGN_WORK":
+                    found = process_work_assignment(command, client_socket)
+                    if found:
+                        should_exit = True
+                        break
+
+                elif action == "STOP":
+                    print("[*] Received STOP command from server. Exiting.")
+                    should_exit = True
+                    break
+
+                elif action == "NO_WORK":
+                    print("[*] No more work available from server. Exiting.")
+                    should_exit = True
+                    break
+
+    except KeyboardInterrupt:
+        print("[*] Task interrupted by user. Closing client.")
+    except Exception as e:
+        print(f"[-] Error: {e}")
+    finally:
+        # 5. Close the connection
+        client_socket.close()
+        print("[+] Connection closed.")
+
+if __name__ == "__main__":
+    main()
