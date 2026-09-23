@@ -6,7 +6,7 @@
 
 """
 
-Responsabilidad de este archivo:
+QUe hace:
   - Leer el .pcap capturado.
   - Encontrar los paquetes RIPv2 (UDP puerto 520) que traen el
     trailer de autenticación MD5 (RFC 2082).
@@ -16,7 +16,7 @@ Responsabilidad de este archivo:
         * el Key ID,
         * el Sequence Number,
         * el digest (hash) que se debe intentar reproducir.
-  - Guardar todo en un JSON para que el archivo "master.py" lo lea
+  - Guardar todo en un JSON para que el archivo "main.py" lo lea
     y reparta el trabajo a los workers.
 
 """
@@ -36,7 +36,7 @@ def parse_rip_auth_packet(raw: bytes):
     """
     Dado el payload UDP crudo de UN paquete RIP, intenta extraer
     los datos de autenticación MD5. Devuelve None si el paquete
-    no trae autenticación (ej. los 'request' vacíos).
+    no trae autenticación
     """
     if len(raw) < 24 + MD5_DIGEST_LEN:
         return None  # muy corto para traer auth + digest
