@@ -1,0 +1,22 @@
+name: ff-bruteforce
+
+services:
+  mininet-lab:
+    build: .
+    image: ff-bruteforce-mininet
+    container_name: ff-bruteforce-lab
+    privileged: true
+    stdin_open: true
+    tty: true
+    volumes:
+      - ..:/data/FF_BruteForce
+      - ./ovs-db:/etc/openvswitch
+      - /lib/modules:/lib/modules:ro
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc:
+        soft: 65536
+        hard: 65536
+    restart: unless-stopped
