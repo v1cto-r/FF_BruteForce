@@ -31,6 +31,44 @@ docker compose down
 Despues de eso no hay que hacer nada dentro del mininet, más que tenerlo arriba antes de correr el servidor
 
 
+### Entorno de Python
+
+Los códigos de python (`client.py`, `main.py`, etc.) necesitan Python 3 (probado con 3.14, pero debería funcionar con otras versiones recientes mientras las libs en `requirements.txt` sean compatibles). Para no instalar las dependencias de forma global, hay que crear un entorno virtual (venv):
+
+Primero verificar la versión de python instalada:
+
+```
+python3 --version
+```
+
+Crear el venv con esa versión:
+
+```
+python3 -m venv .venv
+```
+
+> [!NOTE]
+> Si se tienen varias versiones instaladas y se quiere usar una en específico (ej. 3.14), se puede reemplazar `python3` por `python3.14` en el comando de arriba (`python3.14 -m venv .venv`)
+
+Activarlo:
+
+```
+# macOS / Linux
+source .venv/bin/activate
+
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+```
+
+Instalar las dependencias:
+
+```
+pip install -r requirements.txt
+```
+
+> [!NOTE]
+> Cada vez que se abra una nueva terminal hay que volver a activar el venv (`source .venv/bin/activate`) antes de correr los scripts. Para desactivarlo se usa el comando `deactivate`
+
 ### Brute Forcer
 
 #### Levantar un cliente
