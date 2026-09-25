@@ -10,9 +10,14 @@ def main():
   target_hmac, payload_hex = reader.get_crack_target(PCAP_PATH)
 
   # Orquestar el servidor y los clientes
-  server.start_server(target_hmac, payload_hex)
+  found_key = server.start_server(target_hmac, payload_hex)
 
   # Con la contraseña ejecutar la inyección de RIP
+  if found_key:
+    print(f"Key found: {found_key}")
+    server.inject_via_mininet(found_key)
+  else:
+    print("No key found (keyspace exhausted or server interrupted).")
 
   return
 

@@ -1,16 +1,10 @@
-###################################################
-#
-#       CLIENT THAT CONNECTS VIA SOCKETS (client.py)
-#
-###################################################
-
 import socket
 import json
 import hmac
 import hashlib
 
 # Configuration settings
-SERVER_IP = '10.22.145.142'
+SERVER_IP = '127.0.0.1'
 SERVER_PORT = 65433
 
 # Toggle between Standard HMAC-MD5 (True) vs RFC 2082 Keyed-MD5 (False)
@@ -56,7 +50,7 @@ def process_work_assignment(command, client_socket):
     # Read dynamic key length provided by server.py (defaults to 6 if missing)
     key_length = command.get("key_length", 6)
 
-    print(f"[*] Testing range {hex(start_int)} to {hex(end_int)} (Key length: {key_length})")
+    print(f"Testing range {hex(start_int)} to {hex(end_int)} (Key length: {key_length})")
 
     for current_int in range(start_int, end_int + 1):
         raw_candidate = index_to_candidate(current_int, key_length)
@@ -69,7 +63,7 @@ def process_work_assignment(command, client_socket):
         # print(f"[DEBUG] Testing key: '{raw_candidate}' | Key bytes: {padded_debug}")
 
         if calculated_digest.lower() == target_hmac.lower():
-            print(f"[!] Key found! Candidate: '{raw_candidate}'")
+            print(f"Key found! Candidate: '{raw_candidate}'")
             
             # Send result back to server
             found_msg = json.dumps({
@@ -79,7 +73,7 @@ def process_work_assignment(command, client_socket):
             client_socket.sendall(found_msg.encode('utf-8'))
             return True
 
-    print("[*] Range completed without matches.")
+    print("Range completed without matches.")
     return False
 
 def main():
@@ -88,7 +82,7 @@ def main():
 
     # 2. Connect to the server
     client_socket.connect((SERVER_IP, SERVER_PORT))
-    print(f"[+] Connected to server at {SERVER_IP}:{SERVER_PORT}")
+    print(f"Connected to server at {SERVER_IP}:{SERVER_PORT}")
 
     buffer = ""
     should_exit = False
@@ -102,7 +96,7 @@ def main():
             # 4. Receive reply from server
             reply = client_socket.recv(4096)
             if not reply:
-                print("[-] Connection closed by server.")
+                print("Connection closed by server.")
                 break
 
             buffer += reply.decode('utf-8')
@@ -123,23 +117,23 @@ def main():
                         break
 
                 elif action == "STOP":
-                    print("[*] Received STOP command from server. Exiting.")
+                    print("Received STOP command from server. Exiting.")
                     should_exit = True
                     break
 
                 elif action == "NO_WORK":
-                    print("[*] No more work available from server. Exiting.")
+                    print("No more work available from server. Exiting.")
                     should_exit = True
                     break
 
     except KeyboardInterrupt:
-        print("[*] Task interrupted by user. Closing client.")
+        print("Task interrupted by user. Closing client.")
     except Exception as e:
-        print(f"[-] Error: {e}")
+        print(f"Error: {e}")
     finally:
         # 5. Close the connection
         client_socket.close()
-        print("[+] Connection closed.")
+        print("Connection closed.")
 
 if __name__ == "__main__":
     main()

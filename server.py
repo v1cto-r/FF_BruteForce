@@ -1,20 +1,20 @@
-###################################################
-#
-#    SERVER THAT CONNECTS VIA SOCKETS AND QUEUE
-#
-###################################################
-
 import socket
 import json
 import heapq
+import subprocess
 import threading
+
+MININET_CONTAINER = "ff-bruteforce-lab"
+TOPO_PATH_IN_CONTAINER = "/data/FF_BruteForce/topo.py"
 
 HOST = '0.0.0.0'
 PORT = 65433
 KEY_LENGTH = 6          # zero-padded hex digits per candidate key, matches client.py default
-BLOCK_SIZE = 131_072      # how many keys go out per assigned block
+BLOCK_SIZE = 16_777_216      # how many keys go out per assigned block
 
-# --- shared state (reset in start_server, guarded by the locks below) ---
+# shared state (reset in start_server, guarded by the locks below)
+# locks implemented cause there are multiple threads
+# Could happen that 2 threads ask for blocks at the same time, without a lock a race condition will happen
 queue_lock = threading.Lock()
 found_lock = threading.Lock()
 
@@ -27,7 +27,6 @@ found_key = None
 
 
 def get_block():
-    """Pop the next block to hand out: requeued blocks first, then fresh ones."""
     global next_start, next_id
     with queue_lock:
         if heap:
@@ -44,7 +43,6 @@ def get_block():
 
 
 def requeue_block(block):
-    """Put a block back at the front of the line (client disconnected mid-block)."""
     global requeue_counter
     with queue_lock:
         heapq.heappush(heap, (requeue_counter, block))
@@ -70,7 +68,7 @@ def send_json(conn, payload):
 
 
 def handle_client(conn, addr, target_hmac, payload_hex):
-    print(f"[+] Connected by {addr}")
+    print(f"Connected by {addr}")
     buffer = ""
     current_block = None
 
@@ -118,23 +116,20 @@ def handle_client(conn, addr, target_hmac, payload_hex):
                 elif action == "KEY_FOUND":
                     key = msg.get("key")
                     if set_found_key(key):
-                        print(f"[!] Key found by {addr}: {key}")
+                        print(f"Key found by {addr}: {key}")
                     current_block = None
                     return
 
-                # unknown actions are ignored, matching the client's own behavior
-
     except (ConnectionError, OSError) as e:
-        print(f"[-] Connection with {addr} lost: {e}")
+        print(f"Connection with {addr} lost: {e}")
     finally:
         if current_block is not None:
             requeue_block(current_block)
         conn.close()
-        print(f"[-] Connection with {addr} closed.")
+        print(f"Connection with {addr} closed.")
 
 
 def start_server(target_hmac, payload_hex):
-    """Reset job state and run the accept loop until the process is killed."""
     global heap, requeue_counter, next_start, next_id, found_key
     heap = []
     requeue_counter = -1
@@ -146,11 +141,15 @@ def start_server(target_hmac, payload_hex):
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((HOST, PORT))
     server_socket.listen(5)
-    print(f"[+] Server listening on {HOST}:{PORT} (key_length={KEY_LENGTH}, block_size={BLOCK_SIZE})")
+    server_socket.settimeout(10)
+    print(f"Server listening on {HOST}:{PORT} (key_length={KEY_LENGTH}, block_size={BLOCK_SIZE})")
 
     try:
-        while True:
-            conn, addr = server_socket.accept()
+        while not is_found():
+            try:
+                conn, addr = server_socket.accept()
+            except socket.timeout:
+                continue
             thread = threading.Thread(
                 target=handle_client,
                 args=(conn, addr, target_hmac, payload_hex),
@@ -158,6 +157,16 @@ def start_server(target_hmac, payload_hex):
             )
             thread.start()
     except KeyboardInterrupt:
-        print("[*] Server shutting down.")
+        print("Server shutting down.")
     finally:
         server_socket.close()
+
+    return found_key
+
+
+def inject_via_mininet(key):
+    # This one here runs the python 3 script with the cracked password
+    
+    cmd = ["docker", "exec", MININET_CONTAINER, "python3", TOPO_PATH_IN_CONTAINER, "--key", key]
+    print(f"Injecting cracked key via {MININET_CONTAINER}: {' '.join(cmd)}")
+    subprocess.run(cmd, check=True)

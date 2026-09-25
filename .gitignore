@@ -1,1 +1,9 @@
 .idea/
+__pycache__/
+mininet/ovs-db/
+reference_capture.pcap
+inject_capture.pcap
+routes_before.txt
+routes_after.txt
+
+capture.pcap
