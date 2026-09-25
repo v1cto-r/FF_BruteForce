@@ -10,7 +10,7 @@ TOPO_PATH_IN_CONTAINER = "/data/FF_BruteForce/topo.py"
 
 HOST = '0.0.0.0'
 PORT = 65433
-KEY_LENGTH = 6          # zero-padded hex digits per candidate key, matches client.py default
+KEY_LENGTH = 5          # zero-padded hex digits per candidate key, matches client.py default
 BLOCK_SIZE = 16_777_216      # how many keys go out per assigned block
 
 # shared state (reset in start_server, guarded by the locks below)

@@ -76,6 +76,9 @@ pip install -r requirements.txt
 > [!WARNING]
 > A la hora de levantar el cliente hay que editar el archivo de `client.py` para ajustar la ip de la computadora del servidor
 
+> [!NOTE]
+> Si se va a levantar un servidor en la misma computadora, no es necesario levantar un cliente por aparte, el servidor se encarga de levantar un cliente 
+
 ```
 python3 client.py
 ```
@@ -86,6 +89,9 @@ Para levantar el servidor se necesita que en el mismo folder exista el archivo `
 
 > [!NOTE]  
 > Dentro del código de main.py se busca el archivo `capture.pcap` si tiene otro nombre se puede renombrar, o cambiar directamente el código
+
+> [!NOTE]  
+> Depende de la contraseña a probar, hay que modificar la constante en la parte de arriba de `server.py` al tamaño de la contraseña 
  
 A la hora de levantar el servidor va a hacer todo el proceso desde leer el archivo, hasta mandar a llamar la inyección del paquete de RIP.
 
