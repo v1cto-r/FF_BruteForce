@@ -3,6 +3,7 @@ import json
 import heapq
 import subprocess
 import threading
+import time
 
 MININET_CONTAINER = "ff-bruteforce-lab"
 TOPO_PATH_IN_CONTAINER = "/data/FF_BruteForce/topo.py"
@@ -17,6 +18,7 @@ BLOCK_SIZE = 16_777_216      # how many keys go out per assigned block
 # Could happen that 2 threads ask for blocks at the same time, without a lock a race condition will happen
 queue_lock = threading.Lock()
 found_lock = threading.Lock()
+rates_lock = threading.Lock()
 
 heap = []               # heapq of (priority, block) for requeued blocks only
 requeue_counter = -1    # decremented on every requeue so latest failure sorts first
@@ -24,6 +26,8 @@ next_start = 0          # cursor into untouched keyspace
 next_id = 0
 total_keyspace = 36 ** KEY_LENGTH
 found_key = None
+start_time = None
+client_rates = {}
 
 
 def get_block():
@@ -65,6 +69,17 @@ def is_found():
 
 def send_json(conn, payload):
     conn.sendall((json.dumps(payload) + "\n").encode('utf-8'))
+
+
+def set_client_rate(addr, rate):
+    with rates_lock:
+        client_rates[addr] = rate
+        return sum(client_rates.values())
+
+
+def drop_client_rate(addr):
+    with rates_lock:
+        client_rates.pop(addr, None)
 
 
 def handle_client(conn, addr, target_hmac, payload_hex):
@@ -113,6 +128,14 @@ def handle_client(conn, addr, target_hmac, payload_hex):
                         "key_length": KEY_LENGTH,
                     })
 
+                elif action == "BLOCK_DONE":
+                    elapsed = msg.get("elapsed")
+                    count = msg.get("count")
+                    rate = msg.get("rate")
+                    total_rate = set_client_rate(addr, rate)
+                    print(f"Client {addr} block: {count} hashes in {elapsed:.2f}s, {rate:.0f} hashes/sec")
+                    print(f"Total across all clients: {total_rate:.0f} hashes/sec")
+
                 elif action == "KEY_FOUND":
                     key = msg.get("key")
                     if set_found_key(key):
@@ -125,17 +148,20 @@ def handle_client(conn, addr, target_hmac, payload_hex):
     finally:
         if current_block is not None:
             requeue_block(current_block)
+        drop_client_rate(addr)
         conn.close()
         print(f"Connection with {addr} closed.")
 
 
 def start_server(target_hmac, payload_hex):
-    global heap, requeue_counter, next_start, next_id, found_key
+    global heap, requeue_counter, next_start, next_id, found_key, start_time, client_rates
     heap = []
     requeue_counter = -1
     next_start = 0
     next_id = 0
     found_key = None
+    client_rates = {}
+    start_time = time.time()
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -160,6 +186,9 @@ def start_server(target_hmac, payload_hex):
         print("Server shutting down.")
     finally:
         server_socket.close()
+
+    total_elapsed = time.time() - start_time
+    print(f"Total cracking time: {total_elapsed:.2f}s")
 
     return found_key
 

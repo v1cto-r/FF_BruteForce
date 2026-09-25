@@ -2,6 +2,7 @@ import socket
 import json
 import hmac
 import hashlib
+import time
 
 # Configuration settings
 SERVER_IP = '127.0.0.1'
@@ -52,26 +53,41 @@ def process_work_assignment(command, client_socket):
 
     print(f"Testing range {hex(start_int)} to {hex(end_int)} (Key length: {key_length})")
 
+    start_time = time.time()
+    found_candidate = None
+
     for current_int in range(start_int, end_int + 1):
         raw_candidate = index_to_candidate(current_int, key_length)
-
-        # Compute digest
         calculated_digest = compute_digest(raw_candidate, payload_bytes)
 
-        # # DEBUG PRINT: Displays exact key string and raw 16-byte representation
-        # padded_debug = raw_candidate.encode('utf-8').ljust(16, b'\x00')
-        # print(f"[DEBUG] Testing key: '{raw_candidate}' | Key bytes: {padded_debug}")
-
         if calculated_digest.lower() == target_hmac.lower():
-            print(f"Key found! Candidate: '{raw_candidate}'")
-            
-            # Send result back to server
-            found_msg = json.dumps({
-                "action": "KEY_FOUND",
-                "key": raw_candidate
-            }) + "\n"
-            client_socket.sendall(found_msg.encode('utf-8'))
-            return True
+            found_candidate = raw_candidate
+            tested = current_int - start_int + 1
+            break
+    else:
+        tested = end_int - start_int + 1
+
+    elapsed = time.time() - start_time
+    rate = tested / elapsed if elapsed > 0 else tested
+
+    print(f"Block took {elapsed:.2f}s, {tested} hashes, {rate:.0f} hashes/sec")
+
+    block_msg = json.dumps({
+        "action": "BLOCK_DONE",
+        "elapsed": elapsed,
+        "count": tested,
+        "rate": rate,
+    }) + "\n"
+    client_socket.sendall(block_msg.encode('utf-8'))
+
+    if found_candidate is not None:
+        print(f"Key found! Candidate: '{found_candidate}'")
+        found_msg = json.dumps({
+            "action": "KEY_FOUND",
+            "key": found_candidate
+        }) + "\n"
+        client_socket.sendall(found_msg.encode('utf-8'))
+        return True
 
     print("Range completed without matches.")
     return False
