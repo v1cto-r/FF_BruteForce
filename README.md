@@ -14,18 +14,21 @@ En el caso de mininet, solamente se necesita que la computadora para correrlo te
 > El mininet se levanta en la misma computadora que el servidor. No necesita correr en los clientes (°_°).
 
 ```
+# Dentro de /mininet
 docker compose up -d
 ```
 
 y para bajarlo
 
-```
+```'
+# Dentro de /mininet
 docker compose down
 ```
 
 > [!WARNING]
 > Durante la primera vez que se descarga el repo, hay que obtener la captura de la topología para poder hacer la demostración
-> ```docker exec -it ff-bruteforce-lab python3 /data/FF_BruteForce/topo.py```
+> macOS: ```docker exec -it ff-bruteforce-lab python3 /data/FF_BruteForce/topo.py```
+> Windows: ```docker exec -it ff-bruteforce-lab python3 //data/FF_BruteForce/topo.py```
 > Se necesita tener el contenedor de mininet arriba, y esto va a generar dentro del folder el archivo `capture.pcap`
 
 Despues de eso no hay que hacer nada dentro del mininet, más que tenerlo arriba antes de correr el servidor
@@ -38,13 +41,21 @@ Los códigos de python (`client.py`, `main.py`, etc.) necesitan Python 3 (probad
 Primero verificar la versión de python instalada:
 
 ```
+# macOS / Linux
 python3 --version
+
+# Windows
+python --version
 ```
 
 Crear el venv con esa versión:
 
 ```
+# macOS / Linux
 python3 -m venv .venv
+
+# Windows
+python -m venv .venv
 ```
 
 > [!NOTE]
@@ -58,6 +69,9 @@ source .venv/bin/activate
 
 # Windows (PowerShell)
 .venv\Scripts\Activate.ps1
+
+# Windows (VS Code Terminal)
+source .venv/Scripts/activate
 ```
 
 Instalar las dependencias:
@@ -67,7 +81,7 @@ pip install -r requirements.txt
 ```
 
 > [!NOTE]
-> Cada vez que se abra una nueva terminal hay que volver a activar el venv (`source .venv/bin/activate`) antes de correr los scripts. Para desactivarlo se usa el comando `deactivate`
+> Cada vez que se abra una nueva terminal hay que volver a activar el venv macOS(`source .venv/bin/activate`) / Windows(`source .venv/Scripts/activate`) antes de correr los scripts. Para desactivarlo se usa el comando `deactivate`
 
 ### Brute Forcer
 
@@ -80,7 +94,11 @@ pip install -r requirements.txt
 > Si se va a levantar un servidor en la misma computadora, no es necesario levantar un cliente por aparte, el servidor se encarga de levantar un cliente 
 
 ```
+# macOS
 python3 client.py
+
+# Windows
+python client.py
 ```
 
 #### Levantar el servidor
@@ -110,7 +128,11 @@ flowchart TD
 Para levantar:
 
 ```
+#macOS
 python3 main.py
+
+# Windows
+python main.py
 ```
 
 ### Resultados
